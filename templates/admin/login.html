@@ -1,0 +1,65 @@
+{% extends "jazzmin/login.html" %}
+
+{% block content %}
+<div class="login-box">
+    <div class="login-logo">
+        <a href="{% url 'admin:index' %}">
+            <img src="{{ site_logo }}" height="80px" alt="Logo">
+            <br>
+            <b>{{ site_header }}</b>
+        </a>
+    </div>
+    <div class="card">
+        <div class="card-body login-card-body">
+            <p class="login-box-msg">{{ welcome_sign }}</p>
+
+            <form action="{{ app_path }}" method="post" id="login-form">
+                {% csrf_token %}
+                
+                <div class="input-group mb-3">
+                    <input type="text" name="username" class="form-control" placeholder="Usuario" required>
+                    <div class="input-group-append">
+                        <div class="input-group-text">
+                            <span class="fas fa-user"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group mb-3">
+                    <input type="password" name="password" id="password-field" class="form-control" placeholder="Contraseña" required>
+                    <div class="input-group-append">
+                        <div class="input-group-text" style="cursor: pointer;" onclick="togglePassword()">
+                            <span id="eye-icon" class="fas fa-eye"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePassword() {
+        var passwordField = document.getElementById("password-field");
+        var eyeIcon = document.getElementById("eye-icon");
+        
+        // Si es contraseña (puntos), lo vuelve texto
+        if (passwordField.type === "password") {
+            passwordField.type = "text";
+            eyeIcon.classList.remove("fa-eye");
+            eyeIcon.classList.add("fa-eye-slash"); // Cambia el icono a ojo tachado
+        } else {
+            // Si es texto, lo vuelve contraseña (puntos)
+            passwordField.type = "password";
+            eyeIcon.classList.remove("fa-eye-slash");
+            eyeIcon.classList.add("fa-eye"); // Vuelve al icono normal
+        }
+    }
+</script>
+{% endblock %}
