@@ -1,0 +1,44 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block content %}
+
+{% if periodo_info %}
+<div style="background-color: {{ periodo_bg }}; color: white; padding: 15px; font-size: 1.2rem; font-weight: bold; text-align: center; margin-bottom: 20px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+    <i class="fas fa-calendar-day"></i> {{ periodo_info }}
+</div>
+{% endif %}
+
+<style>
+    .card-body.table-responsive {
+        max-height: 75vh !important;
+        overflow-y: auto !important;
+        border: 2px solid #007bff;
+    }
+
+    .card-body.table-responsive table {
+        border-collapse: separate !important;
+        border-spacing: 0;
+        width: 100%;
+    }
+
+    .card-body.table-responsive thead th {
+        position: sticky !important;
+        top: 0 !important;
+        background-color: #007bff !important; /* Azul */
+        color: #ffffff !important;
+        z-index: 1000 !important;
+        border-top: 0 !important;
+        border-bottom: 3px solid #ffc107 !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        padding: 15px !important;
+    }
+
+    .card-body.table-responsive thead th a {
+        color: #fff !important;
+        text-decoration: none;
+    }
+</style>
+
+{{ block.super }}
+{% endblock %}

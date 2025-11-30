@@ -1,165 +1,97 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
-{% load admin_urls %}
-{% load import_export_tags %}
-{% load static %}
-
-{% block extrastyle %}
-  {{ block.super }}
-  <link rel="stylesheet" type="text/css" href="{% static 'import_export/import.css' %}" />
-  <style>
-    /* --- ESTILOS MEJORADOS PARA SCROLL Y CABECERA FIJA --- */
-    
-    /* 1. Contenedor de la tabla con altura limitada y scroll propio */
-    .table-scroll-container {
-        max-height: 65vh; /* Ocupa el 65% de la altura de la pantalla */
-        overflow-y: auto; /* Activa el scroll vertical */
-        border: 1px solid #dee2e6;
-        position: relative;
-    }
-
-    /* 2. Cabecera fija (Sticky Header) */
-    .table-scroll-container thead th {
-        position: sticky;
-        top: 0;
-        background-color: #343a40; /* Fondo oscuro (estilo Jazzmin) */
-        color: #ffffff;
-        z-index: 10; /* Asegura que quede por encima de los datos */
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Sombrita para separar */
-        border-top: none;
-    }
-
-    /* 3. Panel de Acciones (Botones) */
-    .actions-toolbar {
-        background-color: #f4f6f9;
-        padding: 15px;
-        border-bottom: 3px solid #007bff; /* Línea azul decorativa */
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0;
-    }
-
-    /* Etiquetas de estado */
-    .import-status { font-weight: bold; text-transform: uppercase; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; display: inline-block; width: 100px; text-align: center; }
-    .status-new { background-color: #28a745; color: white; }
-    .status-update { background-color: #ffc107; color: black; }
-    .status-delete { background-color: #dc3545; color: white; }
-    .status-skip { background-color: #6c757d; color: white; }
-  </style>
-{% endblock %}
-
-{% block breadcrumbs_last %}
-  {% trans "Import" %}
-{% endblock %}
+{% load i18n admin_urls import_export_tags static %}
 
 {% block content %}
-<div class="col-12">
+<style>
+    /* Contenedor Fijo */
+    .fixed-table-container {
+        height: 65vh !important;
+        overflow-y: auto !important;
+        border: 2px solid #007bff; /* Borde Azul también para combinar */
+        background: white;
+        position: relative;
+    }
     
-    <div class="card card-primary card-outline">
-        <div class="card-header">
-            <h3 class="card-title">
-                <i class="fas fa-file-import"></i> 
-                Confirmar Importación
-            </h3>
-        </div>
+    .fixed-table-container table {
+        width: 100%;
+        border-collapse: separate !important;
+        border-spacing: 0;
+    }
 
-        <div class="card-body p-0"> {% if result.has_errors %}
-                <div class="alert alert-danger m-3">
-                    <h5><i class="icon fas fa-ban"></i> ¡Error Crítico!</h5>
-                    Ocurrieron errores al leer el archivo. Corríjalos y vuelva a intentar.
-                </div>
-                <div class="p-3">
-                    <table class="table table-bordered table-striped">
-                        <thead>
-                        <tr>
-                            <th>Fila</th>
-                            <th>Error</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {% for error in result.base_errors %}
-                        <tr>
-                            <td>{{ error.line }}</td>
-                            <td class="traceback">{{ error.error }}</td>
-                        </tr>
-                        {% endfor %}
-                        {% for line, errors in result.row_errors %}
-                        {% for error in errors %}
-                        <tr>
-                            <td>Fila: {{ line }} - {{ error.error }}</td>
-                            <td class="traceback">{{ error.traceback }}</td>
-                        </tr>
-                        {% endfor %}
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+    /* --- CAMBIO: ENCABEZADO AZUL --- */
+    .fixed-table-container thead th {
+        position: sticky !important;
+        top: 0 !important;
+        background-color: #007bff !important; /* <--- AZUL INSTITUCIONAL */
+        color: #fff !important;
+        z-index: 500 !important;
+        padding: 15px !important;
+        border-bottom: 3px solid #ffc107 !important; /* Mantenemos la línea naranja */
+    }
 
-            {% elif result.rows %}
+    .actions-box {
+        background: #e9ecef; padding: 15px; border-bottom: 2px solid #007bff;
+        display: flex; justify-content: space-between; align-items: center;
+    }
+</style>
+
+{% if confirm_form %}
+    <div class="col-12">
+        <div class="card card-primary card-outline">
+            <div class="card-header"><h3 class="card-title">Confirmar Importación</h3></div>
+            <div class="card-body p-0">
                 
-                <div class="actions-toolbar">
-                    <div>
-                        <h5 class="m-0 font-weight-bold text-dark">Vista Previa de Datos</h5>
-                        <small class="text-muted">
-                            Se procesarán <b>{{ result.rows|length }}</b> filas. Revise y confirme.
-                        </small>
+                <form action="{% url opts|admin_urlname:'process_import' %}" method="POST">
+                    {% csrf_token %}
+                    <div class="actions-box">
+                        <h5 class="m-0">Vista Previa: {{ result.rows|length }} registros</h5>
+                        <div>
+                            {{ confirm_form.as_p }}
+                            <button type="submit" class="btn btn-success" name="confirm" value="Confirm">CONFIRMAR</button>
+                        </div>
                     </div>
+                </form>
 
-                    <form action="{% url opts|admin_urlname:'process_import' %}" method="POST" class="m-0">
-                        {% csrf_token %}
-                        {{ confirm_form.as_p }}
-                        
-                        <a href="javascript:history.back()" class="btn btn-secondary mr-2">
-                            <i class="fas fa-times"></i> Cancelar
-                        </a>
-                        <button type="submit" class="btn btn-success" name="confirm" value="Confirm">
-                            <i class="fas fa-check"></i> Confirmar Importación
-                        </button>
-                    </form>
-                </div>
-                <div class="table-scroll-container">
-                    <table class="table table-hover table-striped table-bordered text-sm m-0">
-                        <thead>
-                        <tr>
-                            <th style="width: 120px;">Acción</th>
-                            <th>ID / Legajo</th>
-                            {% for field in result.diff_headers %}
-                                <th>{{ field }}</th>
+                {% if result.rows %}
+                    <div class="fixed-table-container">
+                        <table class="table table-striped table-hover m-0">
+                            <thead>
+                                <tr>
+                                    <th>Acción</th>
+                                    <th>ID</th>
+                                    {% for field in result.diff_headers %}<th>{{ field }}</th>{% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in result.rows %}
+                                <tr>
+                                    <td>{{ row.import_type|upper }}</td>
+                                    <td>{{ row.object_id|default:"-" }}</td>
+                                    {% for field in row.diff %}<td>{{ field }}</td>{% endfor %}
+                                </tr>
                             {% endfor %}
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {% for row in result.rows %}
-                        <tr class="{{ row.import_type }}">
-                            <td>
-                                {% if row.import_type == 'new' %}
-                                    <span class="import-status status-new">Nuevo</span>
-                                {% elif row.import_type == 'skip' %}
-                                    <span class="import-status status-skip">Ignorado</span>
-                                {% elif row.import_type == 'delete' %}
-                                    <span class="import-status status-delete">Borrar</span>
-                                {% elif row.import_type == 'update' %}
-                                    <span class="import-status status-update">Actualizar</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ row.object_id|default:"-" }}</td>
-                            {% for field in row.diff %}
-                                <td>{{ field }}</td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-            {% else %}
-                <div class="alert alert-warning m-3">
-                    <h5><i class="icon fas fa-exclamation-triangle"></i> Atención</h5>
-                    El archivo está vacío o no se encontraron datos válidos para importar.
-                </div>
-            {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </div>
         </div>
     </div>
-</div>
+{% else %}
+    <div class="col-12">
+        <div class="card card-primary card-outline">
+            <div class="card-header"><h3 class="card-title">Subir Archivo</h3></div>
+            <div class="card-body text-center p-5">
+                <form action="" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div style="border: 2px dashed #ccc; padding: 40px; background: #f9f9f9;">
+                        <h3>Seleccione Excel</h3>
+                        {{ form.as_p }}
+                        <button type="submit" class="btn btn-primary btn-lg mt-3">Siguiente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endif %}
 {% endblock %}

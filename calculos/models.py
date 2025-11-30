@@ -1,91 +1,71 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 
-# --- MODELO DE PERÍODOS ---
+class Secretaria(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre de la Secretaría")
+    def __str__(self): return self.nombre
+    class Meta: verbose_name = "Secretaría"; verbose_name_plural = "Secretarías"; ordering = ['nombre']
+
+class Departamento(models.Model):
+    nombre = models.CharField(max_length=100, unique=True, verbose_name="Nombre del Departamento")
+    secretaria = models.ForeignKey(Secretaria, on_delete=models.SET_NULL, verbose_name="Secretaría", null=True, blank=True)
+    def __str__(self): return f"{self.nombre} ({self.secretaria.nombre})" if self.secretaria else self.nombre
+    class Meta: verbose_name = "Departamento"; verbose_name_plural = "Departamentos"; ordering = ['nombre']
+
 class Periodo(models.Model):
     nombre = models.CharField(max_length=100, verbose_name="Nombre (ej: Período 01)")
     fecha_inicio = models.DateField(verbose_name="Fecha Inicio")
     fecha_fin = models.DateField(verbose_name="Fecha Fin")
-    
-    # CAMPO RESTAURADO: ACTIVO
-    # Indica que este es el período de trabajo actual
     activo = models.BooleanField(default=True, verbose_name="¿Activo? (Período Actual)")
-
-    # CAMPO DE SEGURIDAD: CERRADO
-    # Si está marcado, bloquea ediciones
     cerrado = models.BooleanField(default=False, verbose_name="¿Cerrado? (Bloquea ediciones)")
+    
+    def clean(self):
+        if self.activo: Periodo.objects.filter(activo=True).exclude(pk=self.pk).update(activo=False)
+    def save(self, *args, **kwargs): self.clean(); super().save(*args, **kwargs)
+    def __str__(self): return f"{self.nombre} ({'🔒 CERRADO' if self.cerrado else '🟢 ABIERTO'})"
+    class Meta: verbose_name = "Período"; verbose_name_plural = "Períodos"; ordering = ['-fecha_inicio']
 
-    def __str__(self):
-        estado = "🔒 CERRADO" if self.cerrado else "🟢 ABIERTO"
-        es_activo = " [ACTUAL]" if self.activo else ""
-        return f"{self.nombre} ({estado}){es_activo}"
-
-    class Meta:
-        verbose_name = "Período"
-        verbose_name_plural = "Períodos"
-        ordering = ['-fecha_inicio']
-
-
-# --- MODELO EMPLEADOS ---
 class Empleado(models.Model):
     nombre_completo = models.CharField(max_length=200, verbose_name="Nombre Completo")
     legajo = models.CharField(max_length=20, unique=True, verbose_name="Número de Legajo")
-    cargo = models.CharField(max_length=100, verbose_name="Departamento / Área", blank=True, null=True)
+    departamento = models.ForeignKey(Departamento, on_delete=models.SET_NULL, verbose_name="Departamento Habitual", null=True, blank=True)
     fecha_ingreso = models.DateField(auto_now_add=True, verbose_name="Fecha de Ingreso")
+    def __str__(self): return f"{self.nombre_completo} ({self.departamento.nombre if self.departamento else 'Sin Área'})"
+    class Meta: verbose_name = "Empleado"; verbose_name_plural = "Empleados"; ordering = ['nombre_completo']
 
-    def __str__(self):
-        return f"{self.nombre_completo} ({self.legajo})"
-
-    class Meta:
-        verbose_name = "Empleado"
-        verbose_name_plural = "Empleados"
-        ordering = ['nombre_completo']
-
-
-# --- MODELO HORAS EXTRAS ---
 class RegistroHora(models.Model):
     periodo = models.ForeignKey(Periodo, on_delete=models.CASCADE, verbose_name="Período", null=True, blank=True)
     empleado = models.ForeignKey(Empleado, on_delete=models.CASCADE, verbose_name="Empleado")
-    fecha = models.DateField(verbose_name="Fecha exacta")
+    departamento_imputacion = models.ForeignKey(Departamento, on_delete=models.CASCADE, verbose_name="Departamento (Imputación)", null=True, blank=True)
     cantidad_horas = models.DecimalField(max_digits=4, decimal_places=1, verbose_name="Cantidad de Horas")
-    motivo = models.TextField(verbose_name="Motivo / Descripción", blank=True, null=True)
     
-    APROBADO = 'AP'
-    PENDIENTE = 'PE'
-    RECHAZADO = 'RE'
-    
-    ESTADOS = [
-        (PENDIENTE, 'Pendiente'),
-        (APROBADO, 'Aprobado'),
-        (RECHAZADO, 'Rechazado'),
-    ]
-    
-    estado = models.CharField(max_length=2, choices=ESTADOS, default=PENDIENTE, verbose_name="Estado")
+    # --- CAMPO PARA VALIDAR EXCESO ---
+    confirmar_exceso = models.BooleanField(default=False, verbose_name="Confirmar >180hs", help_text="Marque si carga más de 180hs.")
 
-    # --- REGLA DE SEGURIDAD ---
     def clean(self):
-        # 1. Validar si el período está CERRADO
         if self.periodo and self.periodo.cerrado:
-            raise ValidationError("⛔ ERROR: Este período está CERRADO. No se pueden hacer cambios.")
+            raise ValidationError("⛔ ERROR: Este período está CERRADO.")
         
-        # Opcional: Podríamos validar también que solo se cargue en el período ACTIVO,
-        # pero por ahora solo dejamos el bloqueo de seguridad.
-        
+        # VALIDACIÓN INTELIGENTE:
+        if self.cantidad_horas and self.cantidad_horas > 180 and not self.confirmar_exceso:
+            raise ValidationError({
+                'cantidad_horas': "⚠️ ALERTA: Valor alto.",
+                'confirmar_exceso': "Debe marcar esta casilla para confirmar que cargar más de 180hs es correcto."
+            })
         super().clean()
 
     def save(self, *args, **kwargs):
+        if not self.departamento_imputacion_id and self.empleado.departamento:
+            self.departamento_imputacion = self.empleado.departamento
+        if not self.periodo:
+            p_activo = Periodo.objects.filter(activo=True).first()
+            if p_activo: self.periodo = p_activo
         self.full_clean()
         super().save(*args, **kwargs)
         
     def delete(self, *args, **kwargs):
-        if self.periodo and self.periodo.cerrado:
-            raise ValidationError("⛔ ERROR: No puedes borrar registros de un período CERRADO.")
+        if self.periodo and self.periodo.cerrado: raise ValidationError("⛔ ERROR: Período CERRADO.")
         super().delete(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.empleado} - {self.cantidad_horas}hs ({self.periodo})"
-
-    class Meta:
-        verbose_name = "Registro de Hora"
-        verbose_name_plural = "Registros de Horas"
-        ordering = ['-fecha']
+    
+    def __str__(self): return f"{self.empleado} - {self.cantidad_horas}hs"
+    class Meta: verbose_name = "Registro de Hora"; verbose_name_plural = "Registros de Horas"; ordering = ['periodo', 'empleado']

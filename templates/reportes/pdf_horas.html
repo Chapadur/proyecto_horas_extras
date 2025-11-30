@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Nota de Elevación</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2.5cm;
+        }
+        body { 
+            font-family: "Times New Roman", Times, serif; 
+            font-size: 12pt; 
+            line-height: 1.5; 
+        }
+        
+        /* --- ESTILOS DE LA NOTA --- */
+        .lugar-fecha { text-align: right; margin-bottom: 20px; }
+        .referencia { text-align: right; font-weight: bold; margin-bottom: 40px; text-decoration: underline; }
+        .encabezado-nota { margin-bottom: 40px; font-weight: bold; text-align: left; }
+        
+        .cuerpo-nota { 
+            text-align: justify; 
+            margin-bottom: 60px; 
+            text-indent: 1cm; 
+        }
+        
+        .firma { text-align: right; margin-top: 100px; }
+        .firma-linea { display: inline-block; border-top: 1px solid black; width: 250px; text-align: center; padding-top: 5px; }
+
+        /* --- SALTO DE PÁGINA --- */
+        .salto-pagina { page-break-before: always; }
+
+        /* --- ESTILOS DE LA TABLA (Hoja 2) --- */
+        .titulo-tabla { 
+            text-align: center; font-weight: bold; font-size: 14pt; 
+            margin-bottom: 20px; text-decoration: underline; 
+        }
+        .info-periodo { 
+            border: 1px solid #000; padding: 10px; margin-bottom: 20px; 
+            background-color: #f9f9f9; font-family: sans-serif; font-size: 10pt;
+        }
+        table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10pt; }
+        th, td { border: 1px solid #000; padding: 6px; text-align: left; }
+        th { background-color: #eee; text-align: center; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        
+        /* Logo pequeño para la tabla */
+        .logo-header { width: 150px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+    <div class="lugar-fecha">
+        {{ fecha_nota }}
+    </div>
+
+    <div class="referencia">
+        Ref.: Elevación de hs extras a liquidar de contratados de locación
+    </div>
+
+    <div class="encabezado-nota">
+        {{ encabezado.linea1 }}<br>
+        {% if encabezado.nombre %}{{ encabezado.nombre }}<br>{% endif %}
+        {{ encabezado.cargo }}<br>
+        {{ encabezado.organismo }}<br>
+        {{ encabezado.ubicacion }}
+    </div>
+
+    <div class="cuerpo-nota">
+        <p>De mi mayor consideración:</p>
+        
+        <p>
+            Tengo el agrado de dirigirme a Ud. a los efectos de enviarle en archivo adjunto el listado de 
+            horas adicionales realizadas por los contratados de locación.
+        </p>
+        
+        <p>
+            Dichas horas fueron realizadas en el período <strong>{{ periodo.nombre }}</strong>, 
+            el cual está comprendido entre el 
+            <strong>{{ periodo.fecha_inicio|date:"d" }} de {{ periodo.fecha_inicio|date:"F" }} de {{ periodo.fecha_inicio|date:"Y" }}</strong> 
+            al 
+            <strong>{{ periodo.fecha_fin|date:"d" }} de {{ periodo.fecha_fin|date:"F" }} de {{ periodo.fecha_fin|date:"Y" }}</strong>.
+        </p>
+        
+        <p>
+            Sin otro particular, y quedando a vuestra entera disposición, saludo a Ud. muy atentamente.
+        </p>
+    </div>
+
+        </div>
+    </div>
+
+    <div class="salto-pagina"></div>
+
+    <img src="{% static 'logo.png' %}" class="logo-header">
+    
+    <div class="titulo-tabla">REPORTE DE HS ADICIONALES - CONTRATADOS DE LOCACIÓN</div>
+
+    <div class="info-periodo">
+        <strong>PERÍODO:</strong> {{ periodo.nombre }} <br>
+        <strong>RANGO DE FECHAS:</strong> 
+        Del {{ periodo.fecha_inicio|date:"d/m/Y" }} al {{ periodo.fecha_fin|date:"d/m/Y" }}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>APELLIDO Y NOMBRE</th>
+                <th>DEPARTAMENTO</th> <th>CANTIDAD HS</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for fila in registros %}
+            <tr>
+                <td>{{ fila.nombre }}</td>
+                <td>{{ fila.departamento }}</td>
+                <td class="text-center">{{ fila.total_horas }}</td>
+            </tr>
+            {% endfor %}
+            
+            <tr style="background-color: #ddd; font-weight: bold;">
+                <td colspan="2" class="text-right">TOTAL GENERAL</td>
+                <td class="text-center">{{ total_general }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>

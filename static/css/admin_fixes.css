@@ -1,0 +1,58 @@
+/* --- 1. AJUSTE DE COLUMNAS GENERALES (SOLO EN LA TABLA DE LISTA) --- */
+/* Forzamos el padding y alineación solo para las celdas de la tabla */
+#result_list th, #result_list td {
+    padding: 6px 8px !important;
+    vertical-align: middle !important;
+}
+
+/* --- 2. COLUMNA EMPLEADO (Scoped) --- */
+#result_list .field-empleado {
+    font-size: 12px !important;
+    white-space: normal !important;
+    min-width: 180px !important;
+    max-width: 250px !important;
+    line-height: 1.2 !important;
+    color: #007bff !important; 
+    font-weight: 600 !important;
+}
+#result_list .field-empleado a {
+    color: #007bff !important;
+}
+
+/* --- 3. COLUMNA DEPARTAMENTO (Imputación) (Scoped) --- */
+#result_list .field-departamento_imputacion {
+    font-size: 11px !important;
+    white-space: normal !important;
+    max-width: 200px !important;
+}
+
+/* --- 4. COLUMNA CANTIDAD DE HORAS (Scoped) --- */
+/* Hacemos la cajita de input más chica, pero solo si está dentro de la lista */
+#result_list .field-cantidad_horas {
+    width: 70px !important;
+    text-align: center !important;
+}
+
+#result_list .field-cantidad_horas input {
+    width: 50px !important;
+    font-size: 12px !important;
+    padding: 2px !important;
+    text-align: center !important;
+}
+
+/* --- 5. COLUMNA CONFIRMACIÓN (Scoped) --- */
+#result_list .field-confirmar_exceso {
+    width: 50px !important;
+    text-align: center !important;
+}
+
+/* --- 6. ENCABEZADOS (Ajuste de tamaño de letra) --- */
+#result_list thead th {
+    font-size: 13px !important;
+    padding: 12px 5px !important;
+    letter-spacing: 0.5px;
+    vertical-align: middle !important;
+}
+#result_list thead th a {
+    font-size: 13px !important;
+}
