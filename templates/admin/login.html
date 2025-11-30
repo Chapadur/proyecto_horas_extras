@@ -1,21 +1,68 @@
-{% extends "jazzmin/login.html" %}
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block bodyclass %}login-page{% endblock %}
+
+{# --- Vaciamos los bloques del menú para que Django no intente cargarlos --- #}
+{% block sidebar %}{% endblock %}
+{% block main_header %}{% endblock %}
+{% block nav_header %}{% endblock %}
 
 {% block content %}
+<style>
+    /* 1. Ocultar menús y barras de navegación */
+    .main-sidebar, .sidebar, aside { display: none !important; }
+    .main-header, .navbar, .navbar-static-top { display: none !important; }
+    
+    /* 2. CENTRADO PERFECTO (Flexbox) */
+    html, body {
+        height: 100vh !important; /* Ocupar toda la altura de la pantalla */
+        margin: 0 !important;
+    }
+    
+    .login-page, .content-wrapper {
+        display: flex !important;
+        align-items: center !important;     /* Centrado Vertical */
+        justify-content: center !important; /* Centrado Horizontal */
+        margin-left: 0 !important;
+        padding-top: 0 !important;
+        background-color: #e9ecef !important;
+        height: 100% !important;
+        width: 100% !important;
+    }
+
+    .login-box {
+        margin-top: -50px; /* Un pequeño ajuste visual hacia arriba */
+        width: 400px;
+    }
+
+    /* Ajuste del Logo */
+    .login-logo img {
+        max-width: 90%;
+        height: auto;
+    }
+</style>
+
 <div class="login-box">
     <div class="login-logo">
         <a href="{% url 'admin:index' %}">
-            <img src="{{ site_logo }}" height="80px" alt="Logo">
-            <br>
-            <b>{{ site_header }}</b>
+            <img src="{% static 'logo.png' %}" alt="Logo Municipalidad">
         </a>
     </div>
+
     <div class="card">
         <div class="card-body login-card-body">
-            <p class="login-box-msg">{{ welcome_sign }}</p>
+            <p class="login-box-msg text-center">
+                Bienvenido al Sistema de Registro de Horas Adicionales
+            </p>
 
             <form action="{{ app_path }}" method="post" id="login-form">
                 {% csrf_token %}
                 
+                {% if form.errors %}
+                    <p class="text-danger text-center">Datos incorrectos. Intente nuevamente.</p>
+                {% endif %}
+
                 <div class="input-group mb-3">
                     <input type="text" name="username" class="form-control" placeholder="Usuario" required>
                     <div class="input-group-append">
@@ -49,16 +96,14 @@
         var passwordField = document.getElementById("password-field");
         var eyeIcon = document.getElementById("eye-icon");
         
-        // Si es contraseña (puntos), lo vuelve texto
         if (passwordField.type === "password") {
             passwordField.type = "text";
             eyeIcon.classList.remove("fa-eye");
-            eyeIcon.classList.add("fa-eye-slash"); // Cambia el icono a ojo tachado
+            eyeIcon.classList.add("fa-eye-slash");
         } else {
-            // Si es texto, lo vuelve contraseña (puntos)
             passwordField.type = "password";
             eyeIcon.classList.remove("fa-eye-slash");
-            eyeIcon.classList.add("fa-eye"); // Vuelve al icono normal
+            eyeIcon.classList.add("fa-eye");
         }
     }
 </script>
