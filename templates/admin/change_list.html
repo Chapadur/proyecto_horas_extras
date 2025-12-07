@@ -1,43 +1,77 @@
 {% extends "admin/change_list.html" %}
-{% load static %}
+{% load static admin_urls %}
+
+{# --- INYECTAR BOTÓN EN BARRA DE ACCIONES (SUPERIOR DERECHA) --- #}
+{% block object-tools %}
+    {{ block.super }}
+    {% if reporte_historico_url %}
+        <a href="{{ reporte_historico_url }}" class="btn btn-warning" style="background-color: #ffc107; color: #212529;">
+            <i class="fas fa-chart-line"></i> Reporte Histórico
+        </a>
+    {% endif %}
+{% endblock %}
 
 {% block content %}
 
+{# --- BARRA DE CONTEXTO DE PERÍODO (INFERIOR AL TÍTULO) --- #}
 {% if periodo_info %}
-<div style="background-color: {{ periodo_bg }}; color: white; padding: 15px; font-size: 1.2rem; font-weight: bold; text-align: center; margin-bottom: 20px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-    <i class="fas fa-calendar-day"></i> {{ periodo_info }}
+<div style="background-color: {{ periodo_bg }}; color: white; padding: 10px; font-size: 1.1rem; font-weight: bold; text-align: center; margin-bottom: 20px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+    <i class="fas fa-calendar-alt"></i> {{ periodo_info }}
 </div>
 {% endif %}
 
 <style>
+    /* ---------------------------------------------------- */
+    /* ESTILOS DE LA TABLA FIJA Y COMPACTA (La solución final al scroll) */
+    /* ---------------------------------------------------- */
+
+    /* 1. Contenedor de la tabla (Ventana con scroll) */
     .card-body.table-responsive {
         max-height: 75vh !important;
         overflow-y: auto !important;
         border: 2px solid #007bff;
+        padding: 0 !important; /* Quitar padding para que la tabla llegue a los bordes */
     }
 
+    /* 2. Tabla con bordes separados para que sticky funcione */
     .card-body.table-responsive table {
         border-collapse: separate !important;
         border-spacing: 0;
         width: 100%;
+        margin-bottom: 0 !important;
     }
 
+    /* 3. Cabecera AZUL y FIJA */
     .card-body.table-responsive thead th {
         position: sticky !important;
         top: 0 !important;
+        z-index: 1000 !important;
         background-color: #007bff !important; /* Azul */
         color: #ffffff !important;
-        z-index: 1000 !important;
         border-top: 0 !important;
-        border-bottom: 3px solid #ffc107 !important;
+        border-bottom: 3px solid #ffc107 !important; /* Línea Naranja */
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        padding: 15px !important;
+        
+        /* Ajuste de letra de los títulos */
+        font-size: 13px !important;
+        padding: 12px 5px !important;
     }
 
+    /* 4. Asegurar que los enlaces de ordenar sean blancos */
     .card-body.table-responsive thead th a {
         color: #fff !important;
         text-decoration: none;
     }
+
+    /* 5. Estilos de Fila (Vienen de admin_fixes.css, se duplican por seguridad) */
+    .field-empleado {
+        font-size: 12px !important;
+        white-space: normal !important;
+        min-width: 180px !important;
+        color: #007bff !important;
+    }
+    
+    /* Si tienes más estilos en admin_fixes.css, este bloque los complementa */
 </style>
 
 {{ block.super }}

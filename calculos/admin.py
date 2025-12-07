@@ -6,33 +6,40 @@ from import_export.widgets import ForeignKeyWidget
 from import_export.admin import ImportExportModelAdmin
 from .models import Empleado, RegistroHora, Periodo, Departamento, Secretaria
 
-# --- IMPORTACIÓN ---
+# --- RECURSO DE IMPORTACIÓN (EmpleadoResource) ---
 class EmpleadoResource(resources.ModelResource):
     legajo = fields.Field(attribute='legajo', column_name='Nº identificación')
     nombre_completo = fields.Field(attribute='nombre_completo', column_name='Nombre del empleado')
-    departamento = fields.Field(attribute='departamento', column_name='Departamento', widget=ForeignKeyWidget(Departamento, field='nombre'))
+    departamento = fields.Field(
+        attribute='departamento', 
+        column_name='Departamento',
+        widget=ForeignKeyWidget(Departamento, field='nombre')
+    )
     
-    class Meta: 
+    class Meta:
         model = Empleado
         import_id_fields = ('legajo',)
         fields = ('legajo', 'nombre_completo', 'departamento')
         skip_unchanged = False 
-        
-    def before_import_row(self, row, **kwargs):
-        if row.get('Departamento'):
-            nombre = str(row.get('Departamento')).strip().upper()
-            row['Departamento'] = nombre
-            Departamento.objects.get_or_create(nombre=nombre)
-            
-    def skip_row(self, instance, original, row, import_validation_errors=None):
-        return row.get('Nº identificación') is None or str(row.get('Nº identificación')).strip() == ''
 
-# --- PANELES ---
-class SecretariaAdmin(admin.ModelAdmin): 
+    def before_import_row(self, row, **kwargs):
+        nombre_depto_raw = row.get('Departamento')
+        if nombre_depto_raw:
+            nombre_limpio = str(nombre_depto_raw).strip().upper()
+            row['Departamento'] = nombre_limpio
+            Departamento.objects.get_or_create(nombre=nombre_limpio)
+
+    def skip_row(self, instance, original, row, import_validation_errors=None):
+        val = row.get('Nº identificación')
+        return val is None or str(val).strip() == ''
+
+# --- PANELES DE ADMINISTRACIÓN ---
+
+class SecretariaAdmin(admin.ModelAdmin):
     list_display = ('nombre',)
     search_fields = ('nombre',)
 
-class DepartamentoAdmin(admin.ModelAdmin): 
+class DepartamentoAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'secretaria')
     list_filter = ('secretaria',)
     search_fields = ('nombre', 'secretaria__nombre')
@@ -43,21 +50,22 @@ class PeriodoAdmin(admin.ModelAdmin):
     list_editable = ('activo', 'cerrado')
     
     def acciones_reporte(self, obj):
-        url_a = reverse('reporte_pdf', args=[obj.pk, 'andrea'])
-        url_e = reverse('reporte_pdf', args=[obj.pk, 'edith'])
+        url_andrea = reverse('reporte_pdf', args=[obj.pk, 'andrea'])
+        url_edith = reverse('reporte_pdf', args=[obj.pk, 'edith'])
         return format_html(
             '<a class="btn btn-info btn-sm" href="{}" target="_blank" style="margin-right:5px;"><i class="fas fa-file-pdf"></i> Andrea</a>'
-            '<a class="btn btn-success btn-sm" href="{}" target="_blank"><i class="fas fa-file-pdf"></i> Edith</a>', url_a, url_e)
+            '<a class="btn btn-success btn-sm" href="{}" target="_blank"><i class="fas fa-file-pdf"></i> Edith</a>', url_andrea, url_edith
+        )
     acciones_reporte.short_description = "Reportes"
 
 class EmpleadoAdmin(ImportExportModelAdmin):
     resource_class = EmpleadoResource
     list_display = ('legajo', 'nombre_completo', 'departamento')
     search_fields = ('legajo', 'nombre_completo', 'departamento__nombre')
-    list_filter = ('departamento',)
+    list_filter = ('departamento__secretaria', 'departamento')
 
 class RegistroHoraAdmin(admin.ModelAdmin):
-    # CAMBIO 1: Quitamos 'periodo' de la lista
+    # --- LISTA DE COLUMNAS FINAL Y LIMPIA ---
     list_display = (
         'empleado', 
         'departamento_imputacion', 
@@ -70,33 +78,44 @@ class RegistroHoraAdmin(admin.ModelAdmin):
     search_fields = ('empleado__nombre_completo', 'empleado__departamento__nombre')
     autocomplete_fields = ['empleado', 'departamento_imputacion']
     
-    # CAMBIO 2: Inyectamos el dato del período en el título
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         
-        # ¿Estás filtrando por período?
-        periodo_id = request.GET.get('periodo__id__exact')
+        # 1. Pasar la URL del reporte histórico al contexto
+        extra_context['reporte_historico_url'] = reverse('reporte_historico')
         
+        # 2. Lógica de Período (para la barra de contexto)
+        periodo_id = request.GET.get('periodo__id__exact')
         if periodo_id:
             try:
                 p = Periodo.objects.get(pk=periodo_id)
                 estado = "🔒 CERRADO" if p.cerrado else "🟢 ABIERTO"
                 extra_context['periodo_info'] = f"Viendo Registros de: {p.nombre} ({estado})"
-                extra_context['periodo_bg'] = '#ffc107' if p.cerrado else '#28a745' # Amarillo o Verde
-            except:
-                pass
+                extra_context['periodo_bg'] = '#ffc107' 
+            except: pass
         else:
-            # Si no filtras, mostramos el Activo por defecto
             p_activo = Periodo.objects.filter(activo=True).first()
             if p_activo:
                 extra_context['periodo_info'] = f"Período Activo Actual: {p_activo.nombre}"
-                extra_context['periodo_bg'] = '#17a2b8' # Azul Info
+                extra_context['periodo_bg'] = '#17a2b8'
             else:
-                extra_context['periodo_info'] = "⚠️ No hay período activo seleccionado"
-                extra_context['periodo_bg'] = '#6c757d' # Gris
-
+                extra_context['periodo_info'] = "⚠️ No hay período activo"
+                extra_context['periodo_bg'] = '#6c757d'
+        
         return super().changelist_view(request, extra_context=extra_context)
-
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        
+        # APLICAR FILTRO POR DEFECTO (Período Activo)
+        if not request.GET:
+            periodo_activo = Periodo.objects.filter(activo=True).first()
+            
+            if periodo_activo:
+                qs = qs.filter(periodo=periodo_activo)
+        
+        return qs
+    
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
         p_activo = Periodo.objects.filter(activo=True).first()

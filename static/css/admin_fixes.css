@@ -1,58 +1,64 @@
+/*
+ * Archivo: admin_fixes.css
+ * Propósito: Optimizar la vista de lista de RegistroHora para eliminar la barra horizontal.
+ */
+
 /* --- 1. AJUSTE DE COLUMNAS GENERALES (SOLO EN LA TABLA DE LISTA) --- */
-/* Forzamos el padding y alineación solo para las celdas de la tabla */
-#result_list th, #result_list td {
-    padding: 6px 8px !important;
+#result_list td, #result_list th {
+    padding: 4px 6px !important; 
     vertical-align: middle !important;
 }
 
-/* --- 2. COLUMNA EMPLEADO (Scoped) --- */
+/* --- 2. COLUMNA EMPLEADO (Color Negro, Font Size Aumentado) --- */
 #result_list .field-empleado {
-    font-size: 12px !important;
-    white-space: normal !important;
-    min-width: 180px !important;
-    max-width: 250px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    min-width: 150px !important;
+    max-width: 200px !important;
     line-height: 1.2 !important;
-    color: #007bff !important; 
+    color: #212529 !important;
     font-weight: 600 !important;
 }
 #result_list .field-empleado a {
-    color: #007bff !important;
+    color: #212529 !important;
+    text-decoration: underline;
 }
 
-/* --- 3. COLUMNA DEPARTAMENTO (Imputación) (Scoped) --- */
+/* --- 3. COLUMNA DEPARTAMENTO (Imputación) --- */
 #result_list .field-departamento_imputacion {
-    font-size: 11px !important;
+    font-size: 12px !important;
     white-space: normal !important;
-    max-width: 200px !important;
+    min-width: 120px !important;
+    max-width: 180px !important;
 }
 
-/* --- 4. COLUMNA CANTIDAD DE HORAS (Scoped) --- */
-/* Hacemos la cajita de input más chica, pero solo si está dentro de la lista */
+/* --- 4. COLUMNA CANTIDAD DE HORAS (FONT SIZE GRANDE) --- */
 #result_list .field-cantidad_horas {
-    width: 70px !important;
+    width: 60px !important;
     text-align: center !important;
 }
-
 #result_list .field-cantidad_horas input {
     width: 50px !important;
-    font-size: 12px !important;
-    padding: 2px !important;
+    font-size: 14px !important;       /* <--- CAMBIO: AUMENTADO A 14PX */
+    padding: 1px !important;
     text-align: center !important;
 }
 
-/* --- 5. COLUMNA CONFIRMACIÓN (Scoped) --- */
+/* --- 5. COLUMNA CONFIRMACIÓN --- */
 #result_list .field-confirmar_exceso {
-    width: 50px !important;
+    width: 40px !important;
     text-align: center !important;
+    padding: 4px 2px !important;
 }
 
-/* --- 6. ENCABEZADOS (Ajuste de tamaño de letra) --- */
+/* --- 6. ENCABEZADOS (Títulos Aumentados) --- */
 #result_list thead th {
-    font-size: 13px !important;
-    padding: 12px 5px !important;
-    letter-spacing: 0.5px;
-    vertical-align: middle !important;
+    font-size: 14px !important;
+    padding: 10px 5px !important;
+    letter-spacing: 0;
+    text-transform: uppercase;
 }
 #result_list thead th a {
-    font-size: 13px !important;
+    color: #fff !important;
+    font-size: 14px !important;
 }

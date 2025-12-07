@@ -8,4 +8,7 @@ urlpatterns = [
     # RUTA NUEVA PARA EL REPORTE
     # Recibe el ID del período y el nombre del destinatario (andrea/edith)
     path('reporte/pdf/<int:periodo_id>/<str:destinatario>/', views.generar_reporte_pdf, name='reporte_pdf'),
+
+    # RUTA NUEVA: Dashboard Histórico
+    path('reporte/historico/', views.reporte_historico, name='reporte_historico'), # <--- NUEVA LÍNEA
 ]
