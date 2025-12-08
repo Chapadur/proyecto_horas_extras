@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.db.models import Sum, FloatField, Value, CharField 
-from django.db.models.functions import Coalesce, Cast 
+from django.db.models.functions import Coalesce, Cast
 from django.template.loader import render_to_string
 from weasyprint import HTML
 import datetime
@@ -9,7 +9,6 @@ import locale
 from django.utils import timezone
 from collections import defaultdict
 import calculos.models as models 
-import json
 
 try: locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 except: pass
@@ -21,7 +20,16 @@ def generar_reporte_pdf(request, periodo_id, destinatario):
     periodo = get_object_or_404(models.Periodo, pk=periodo_id)
     
     if not periodo.cerrado:
-        mensaje = f"""... mensaje de bloqueo ..."""
+        mensaje = f"""
+        <html>
+            <head><title>Bloqueo de Reporte</title></head>
+            <body style="font-family: sans-serif; padding: 30px;">
+                <h2 style="color: #dc3545;">❌ Error de Regla de Negocio</h2>
+                <p style="font-size: 16px;">El período <b>{periodo.nombre}</b> debe estar <b>CERRADO</b> (marcado con el candado) antes de generar el reporte de liquidación final.</p>
+                <p><b>Acción Requerida:</b> Vaya al menú Módulos > Períodos, marque el período como "Cerrado" y vuelva a intentarlo.</p>
+            </body>
+        </html>
+        """
         return HttpResponseBadRequest(mensaje)
     
     if destinatario == 'andrea':
@@ -29,7 +37,6 @@ def generar_reporte_pdf(request, periodo_id, destinatario):
     else:
         encabezado = {'linea1': 'A la SRA. SHORT, EDITH MARISA', 'nombre': '', 'cargo': 'Encargada del Área Sueldos', 'organismo': 'del Gobierno de la Ciudad de Chajarí', 'ubicacion': 'S / D'}
     
-    # PROCESAMIENTO INTELIGENTE DE DATOS
     registros_raw = models.RegistroHora.objects.filter(periodo=periodo).select_related(
         'empleado', 'empleado__departamento', 'departamento_imputacion'
     ).order_by('empleado__nombre_completo')
@@ -56,6 +63,7 @@ def generar_reporte_pdf(request, periodo_id, destinatario):
 
         lista_final.append({
             'nombre': empleado.nombre_completo,
+            'documento': empleado.legajo,  # <--- DATO AGREGADO PARA EL REPORTE
             'departamento': depto_mostrar,
             'total_horas': suma_horas
         })
@@ -72,79 +80,32 @@ def generar_reporte_pdf(request, periodo_id, destinatario):
     return response
 
 # ====================================================================
-# FUNCIÓN 2: DASHBOARD HISTÓRICO (Gráficos) - ÚLTIMO INTENTO DE ROBUSTEZ
+# FUNCIÓN 2: DASHBOARD HISTÓRICO
 # ====================================================================
 def reporte_historico(request):
-    # 1. Gráfico de Barras (Histórico - Mínimo Filtro)
-    # CONSULTA: Solo filtra los que tienen período asignado, sin límite de 6 meses
     data_barra_qs = list(models.RegistroHora.objects.exclude(periodo__isnull=True).values( 
         'periodo__nombre',
         'periodo__fecha_inicio'
     ).annotate(
         total_horas=Sum(Cast('cantidad_horas', FloatField()))
     ).order_by('periodo__fecha_inicio'))
-    print('data_barra_qs')
-    print(data_barra_qs)
     
     labels_barra = [f"{item['periodo__nombre']}" for item in data_barra_qs]
     datos_barra = [float(item['total_horas']) for item in data_barra_qs]
     
-    print('labels_barra')
-    print(labels_barra)
-    
-    print('datos_barra')
-    print(datos_barra)
-
-    # 2. Gráfico de Torta (Distribución por Secretaría del Período Activo)
     periodo_actual = models.Periodo.objects.filter(activo=True).first()
-
-    print('periodo_actual')
-    print(periodo_actual)
-    
-    labels_torta = ['Sin Datos']
-    datos_torta = [1]
-    periodo_actual_nombre = "No Definido"
+    labels_torta = ['Sin Datos']; datos_torta = [1]; periodo_actual_nombre = "No Definido"
     
     if periodo_actual:
         periodo_actual_nombre = periodo_actual.nombre
-        
-        # CONSULTA: Filtra por período activo Y Excluye cualquier registro con Secretaría NULL
-        data_torta_qs = list(models.RegistroHora.objects.filter(
-            periodo=periodo_actual
-        ).exclude(departamento_imputacion__secretaria__isnull=True).values( # <--- CRÍTICO: Evita JOINs rotos
+        data_torta_qs = list(models.RegistroHora.objects.filter(periodo=periodo_actual)
+            .exclude(departamento_imputacion__secretaria__isnull=True).values(
             secretaria_nombre=Coalesce('departamento_imputacion__secretaria__nombre', Value('SIN SECRETARÍA', output_field=CharField()))
-        ).annotate(
-            total_horas=Sum(Cast('cantidad_horas', FloatField()))
-        ).order_by('secretaria_nombre'))
+        ).annotate(total_horas=Sum(Cast('cantidad_horas', FloatField()))).order_by('secretaria_nombre'))
         
         labels_torta = [item['secretaria_nombre'] for item in data_torta_qs]
         datos_torta = [float(item['total_horas']) for item in data_torta_qs]
-        
-        if not any(datos_torta):
-             labels_torta = ['Sin Datos']
-             datos_torta = [1]
+        if not any(datos_torta): labels_torta = ['Sin Datos']; datos_torta = [1]
 
-
-#    context = {
- #       'labels_barra': labels_barra,
-  #      'datos_barra': datos_barra,
-   #     'labels_torta': labels_torta,
-    #    'datos_torta': datos_torta,
-     #   'periodo_actual_nombre': periodo_actual_nombre
-    # }
-
-    context = {
-        'labels_barra': json.dumps(labels_barra),
-        'datos_barra': json.dumps(datos_barra),
-        'labels_torta': json.dumps(labels_torta),
-        'datos_torta': json.dumps(datos_torta),
-        'periodo_actual_nombre': periodo_actual_nombre,
-    }
-
-
-
-    
-    print('contextcontextcontextcontextcontext')
-    print(context)
-
+    context = {'labels_barra': labels_barra, 'datos_barra': datos_barra, 'labels_torta': labels_torta, 'datos_torta': datos_torta, 'periodo_actual_nombre': periodo_actual_nombre}
     return render(request, 'reportes/historico.html', context)

@@ -7,7 +7,7 @@
     .fixed-table-container {
         height: 65vh !important;
         overflow-y: auto !important;
-        border: 2px solid #007bff; /* Borde Azul también para combinar */
+        border: 2px solid #007bff; /* Borde Azul */
         background: white;
         position: relative;
     }
@@ -18,7 +18,7 @@
         border-spacing: 0;
     }
 
-    /* --- CAMBIO: ENCABEZADO AZUL --- */
+    /* --- ENCABEZADO AZUL (Sticky) --- */
     .fixed-table-container thead th {
         position: sticky !important;
         top: 0 !important;
@@ -26,13 +26,40 @@
         color: #fff !important;
         z-index: 500 !important;
         padding: 15px !important;
-        border-bottom: 3px solid #ffc107 !important; /* Mantenemos la línea naranja */
+        border-bottom: 3px solid #ffc107 !important; /* Línea naranja */
     }
 
     .actions-box {
         background: #e9ecef; padding: 15px; border-bottom: 2px solid #007bff;
         display: flex; justify-content: space-between; align-items: center;
     }
+
+    /* --- ESTILOS DE FILAS POR ACCIÓN (COLORES) --- */
+    /* Importante: Las clases deben coincidir con row.import_type (new, update, delete, skip) */
+    
+    tr.import-new td { 
+        background-color: #d4edda !important; /* Verde claro para NUEVOS */
+        border-bottom: 1px solid #c3e6cb;
+    } 
+    
+    tr.import-update td { 
+        background-color: #fff3cd !important; /* Amarillo claro para ACTUALIZACIONES */
+        border-bottom: 1px solid #ffeeba;
+    } 
+    
+    tr.import-delete td { 
+        background-color: #f8d7da !important; /* Rojo claro para ELIMINACIONES */
+        border-bottom: 1px solid #f5c6cb;
+    }
+    
+    tr.import-skip td { 
+        background-color: #e2e3e5 !important; /* Gris para SALTADOS/SIN CAMBIOS */
+        color: #6c757d;
+    }
+
+    /* Resaltar la acción en negrita */
+    .action-label { font-weight: bold; text-transform: uppercase; }
+
 </style>
 
 {% if confirm_form %}
@@ -54,7 +81,7 @@
 
                 {% if result.rows %}
                     <div class="fixed-table-container">
-                        <table class="table table-striped table-hover m-0">
+                        <table class="table table-hover m-0">
                             <thead>
                                 <tr>
                                     <th>Acción</th>
@@ -64,8 +91,19 @@
                             </thead>
                             <tbody>
                             {% for row in result.rows %}
-                                <tr>
-                                    <td>{{ row.import_type|upper }}</td>
+                                {# Aplicamos la clase CSS dinámica según el tipo de importación #}
+                                <tr class="import-{{ row.import_type }}">
+                                    <td class="action-label">
+                                        {% if row.import_type == 'new' %}
+                                            <i class="fas fa-plus-circle text-success"></i> NUEVO
+                                        {% elif row.import_type == 'update' %}
+                                            <i class="fas fa-edit text-warning"></i> ACTUALIZAR
+                                        {% elif row.import_type == 'delete' %}
+                                            <i class="fas fa-trash text-danger"></i> BORRAR
+                                        {% else %}
+                                            <i class="fas fa-minus-circle text-secondary"></i> SIN CAMBIOS
+                                        {% endif %}
+                                    </td>
                                     <td>{{ row.object_id|default:"-" }}</td>
                                     {% for field in row.diff %}<td>{{ field }}</td>{% endfor %}
                                 </tr>

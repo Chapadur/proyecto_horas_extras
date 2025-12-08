@@ -7,12 +7,12 @@
     <style>
         @page {
             size: A4;
-            margin: 2.5cm;
+            margin: 2cm 2cm;
         }
         body { 
             font-family: "Times New Roman", Times, serif; 
-            font-size: 12pt; 
-            line-height: 1.5; 
+            font-size: 11pt; 
+            line-height: 1.3; 
         }
         
         /* --- ESTILOS DE LA NOTA --- */
@@ -26,36 +26,78 @@
             text-indent: 1cm; 
         }
         
-        .firma { text-align: right; margin-top: 100px; }
+        .firma { text-align: right; margin-top: 200px; }
         .firma-linea { display: inline-block; border-top: 1px solid black; width: 250px; text-align: center; padding-top: 5px; }
 
-        /* --- SALTO DE PÁGINA --- */
         .salto-pagina { page-break-before: always; }
 
-        /* --- ESTILOS DE LA TABLA (Hoja 2) --- */
+        /* --- ESTILOS DE LA TABLA --- */
         .titulo-tabla { 
-            text-align: center; font-weight: bold; font-size: 14pt; 
-            margin-bottom: 20px; text-decoration: underline; 
+            text-align: center; font-weight: bold; font-size: 13pt; 
+            margin-bottom: 15px; text-decoration: underline; 
         }
         .info-periodo { 
-            border: 1px solid #000; padding: 10px; margin-bottom: 20px; 
+            border: 1px solid #000; padding: 8px; margin-bottom: 15px; 
             background-color: #f9f9f9; font-family: sans-serif; font-size: 10pt;
         }
-        table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10pt; }
-        th, td { border: 1px solid #000; padding: 6px; text-align: left; }
-        th { background-color: #eee; text-align: center; }
+        
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-family: sans-serif; 
+            font-size: 9pt; 
+            table-layout: fixed; /* Mantiene los anchos fijos */
+        }
+        
+        th, td { 
+            border: 1px solid #000; 
+            padding: 5px; 
+            text-align: left; 
+            vertical-align: middle;
+        }
+        
+        th { background-color: #eee; text-align: center; font-weight: bold; }
+        
+        /* --- ESTILOS ESPECÍFICOS DE CELDA --- */
+        
+        /* 1. Nombre: Una sola línea, negrita */
+        .nombre-agente {
+            font-weight: bold;
+            white-space: nowrap;      /* Fuerza una sola línea */
+            overflow: hidden;         /* Oculta si sobra */
+            text-overflow: ellipsis;  /* Pone "..." si se corta */
+            display: block;
+        }
+        
+        /* 2. DNI: Debajo, gris, letra más chica */
+        .dni-agente {
+            color: #555;
+            font-size: 8pt;
+            margin-top: 2px;
+            display: block;
+        }
+        
+        /* 3. Departamento: Permitimos 2 líneas si es necesario para que no coma espacio */
+        .depto-texto {
+            line-height: 1.1;
+            max-height: 2.2em;
+            overflow: hidden;
+        }
+
+        /* ANCHOS DE COLUMNA */
+        .col-agente { width: 50%; } 
+        .col-depto { width: 35%; }
+        .col-horas { width: 15%; text-align: center; font-weight: bold; }
+
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         
-        /* Logo pequeño para la tabla */
-        .logo-header { width: 150px; margin-bottom: 15px; }
+        .logo-header { width: 150px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="lugar-fecha">
-        {{ fecha_nota }}
-    </div>
+    <div class="lugar-fecha">{{ fecha_nota }}</div>
 
     <div class="referencia">
         Ref.: Elevación de hs extras a liquidar de contratados de locación
@@ -71,26 +113,24 @@
 
     <div class="cuerpo-nota">
         <p>De mi mayor consideración:</p>
-        
         <p>
             Tengo el agrado de dirigirme a Ud. a los efectos de enviarle en archivo adjunto el listado de 
             horas adicionales realizadas por los contratados de locación.
         </p>
-        
         <p>
-            Dichas horas fueron realizadas en el período <strong>{{ periodo.nombre }}</strong>, 
+            Dichas horas fueron realizadas en el <strong>{{ periodo.nombre }}</strong>, 
             el cual está comprendido entre el 
             <strong>{{ periodo.fecha_inicio|date:"d" }} de {{ periodo.fecha_inicio|date:"F" }} de {{ periodo.fecha_inicio|date:"Y" }}</strong> 
             al 
             <strong>{{ periodo.fecha_fin|date:"d" }} de {{ periodo.fecha_fin|date:"F" }} de {{ periodo.fecha_fin|date:"Y" }}</strong>.
         </p>
-        
         <p>
             Sin otro particular, y quedando a vuestra entera disposición, saludo a Ud. muy atentamente.
         </p>
     </div>
 
-        </div>
+    <div class="firma">
+        <div class="firma-linea">Firma Responsable</div>
     </div>
 
     <div class="salto-pagina"></div>
@@ -108,16 +148,22 @@
     <table>
         <thead>
             <tr>
-                <th>APELLIDO Y NOMBRE</th>
-                <th>DEPARTAMENTO</th> <th>CANTIDAD HS</th>
+                <th class="col-agente">AGENTE</th>
+                <th class="col-depto">DEPARTAMENTO</th>
+                <th class="col-horas">CANTIDAD HS</th>
             </tr>
         </thead>
         <tbody>
             {% for fila in registros %}
             <tr>
-                <td>{{ fila.nombre }}</td>
-                <td>{{ fila.departamento }}</td>
-                <td class="text-center">{{ fila.total_horas }}</td>
+                <td class="col-agente">
+                    <div class="nombre-agente">{{ fila.nombre }}</div>
+                    <div class="dni-agente">DNI: {{ fila.documento }}</div>
+                </td>
+                <td class="col-depto">
+                    <div class="depto-texto">{{ fila.departamento }}</div>
+                </td>
+                <td class="col-horas">{{ fila.total_horas }}</td>
             </tr>
             {% endfor %}
             

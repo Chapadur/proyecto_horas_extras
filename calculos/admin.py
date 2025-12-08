@@ -1,129 +1,159 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django.urls import reverse
 from import_export import resources, fields
 from import_export.widgets import ForeignKeyWidget
 from import_export.admin import ImportExportModelAdmin
-from .models import Empleado, RegistroHora, Periodo, Departamento, Secretaria
+from .models import Empleado, RegistroHora, Periodo, Departamento, Secretaria, PerfilUsuario
 
-# --- RECURSO DE IMPORTACIÓN (EmpleadoResource) ---
+# --- 1. GESTIÓN DE USUARIOS ---
+class PerfilUsuarioInline(admin.StackedInline):
+    model = PerfilUsuario
+    can_delete = False
+    verbose_name_plural = 'Perfil de Secretaría'
+
+class UserAdmin(BaseUserAdmin):
+    inlines = (PerfilUsuarioInline,)
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
+
+# --- 2. MIXIN DE SEGURIDAD (MEJORADO) ---
+class FiltroSecretariaMixin:
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        
+        # 1. Si es Superusuario, ve TODO.
+        if request.user.is_superuser: 
+            return qs
+        
+        # 2. Intentamos obtener la secretaría del usuario
+        try:
+            # Verificamos si tiene perfil y secretaría
+            if hasattr(request.user, 'perfilusuario') and request.user.perfilusuario.secretaria:
+                sec = request.user.perfilusuario.secretaria
+                
+                # Filtramos según el modelo que se esté viendo
+                if self.model == Empleado:
+                    return qs.filter(departamento__secretaria=sec)
+                elif self.model == RegistroHora:
+                    return qs.filter(departamento_imputacion__secretaria=sec)
+                elif self.model == Departamento:
+                    return qs.filter(secretaria=sec)
+            else:
+                # CASO DIRECTOR (O usuario sin secretaría específica):
+                # Si queremos que el Director vea todo, dejamos esto así:
+                return qs 
+                # Si quisieras que un usuario sin secretaría no vea NADA, pondrías: return qs.none()
+                
+        except Exception:
+            pass
+            
+        return qs
+
+# --- IMPORTACIÓN ---
 class EmpleadoResource(resources.ModelResource):
     legajo = fields.Field(attribute='legajo', column_name='Nº identificación')
     nombre_completo = fields.Field(attribute='nombre_completo', column_name='Nombre del empleado')
-    departamento = fields.Field(
-        attribute='departamento', 
-        column_name='Departamento',
-        widget=ForeignKeyWidget(Departamento, field='nombre')
-    )
-    
-    class Meta:
-        model = Empleado
-        import_id_fields = ('legajo',)
-        fields = ('legajo', 'nombre_completo', 'departamento')
-        skip_unchanged = False 
-
+    departamento = fields.Field(attribute='departamento', column_name='Departamento', widget=ForeignKeyWidget(Departamento, field='nombre'))
+    class Meta: model = Empleado; import_id_fields = ('legajo',); fields = ('legajo', 'nombre_completo', 'departamento'); skip_unchanged = False 
     def before_import_row(self, row, **kwargs):
-        nombre_depto_raw = row.get('Departamento')
-        if nombre_depto_raw:
-            nombre_limpio = str(nombre_depto_raw).strip().upper()
-            row['Departamento'] = nombre_limpio
-            Departamento.objects.get_or_create(nombre=nombre_limpio)
-
+        if row.get('Departamento'):
+            nombre = str(row.get('Departamento')).strip().upper()
+            row['Departamento'] = nombre
+            Departamento.objects.get_or_create(nombre=nombre)
     def skip_row(self, instance, original, row, import_validation_errors=None):
-        val = row.get('Nº identificación')
-        return val is None or str(val).strip() == ''
+        return row.get('Nº identificación') is None or str(row.get('Nº identificación')).strip() == ''
 
-# --- PANELES DE ADMINISTRACIÓN ---
+# --- PANELES CON SEGURIDAD APLICADA ---
 
 class SecretariaAdmin(admin.ModelAdmin):
-    list_display = ('nombre',)
-    search_fields = ('nombre',)
+    list_display = ('nombre',); search_fields = ('nombre',)
 
-class DepartamentoAdmin(admin.ModelAdmin):
+# APLICAMOS EL MIXIN AQUÍ
+class DepartamentoAdmin(FiltroSecretariaMixin, admin.ModelAdmin):
     list_display = ('nombre', 'secretaria')
-    list_filter = ('secretaria',)
-    search_fields = ('nombre', 'secretaria__nombre')
+    list_filter = ('secretaria',); search_fields = ('nombre', 'secretaria__nombre')
 
 class PeriodoAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'fecha_inicio', 'fecha_fin', 'activo', 'cerrado', 'acciones_reporte')
-    list_filter = ('activo', 'cerrado')
-    list_editable = ('activo', 'cerrado')
-    
+    list_filter = ('activo', 'cerrado'); list_editable = ('activo', 'cerrado')
     def acciones_reporte(self, obj):
-        url_andrea = reverse('reporte_pdf', args=[obj.pk, 'andrea'])
-        url_edith = reverse('reporte_pdf', args=[obj.pk, 'edith'])
+        url_a = reverse('reporte_pdf', args=[obj.pk, 'andrea'])
+        url_e = reverse('reporte_pdf', args=[obj.pk, 'edith'])
         return format_html(
             '<a class="btn btn-info btn-sm" href="{}" target="_blank" style="margin-right:5px;"><i class="fas fa-file-pdf"></i> Andrea</a>'
-            '<a class="btn btn-success btn-sm" href="{}" target="_blank"><i class="fas fa-file-pdf"></i> Edith</a>', url_andrea, url_edith
-        )
+            '<a class="btn btn-success btn-sm" href="{}" target="_blank"><i class="fas fa-file-pdf"></i> Edith</a>', url_a, url_e)
     acciones_reporte.short_description = "Reportes"
 
-class EmpleadoAdmin(ImportExportModelAdmin):
+# APLICAMOS EL MIXIN AQUÍ
+class EmpleadoAdmin(FiltroSecretariaMixin, ImportExportModelAdmin):
     resource_class = EmpleadoResource
     list_display = ('legajo', 'nombre_completo', 'departamento')
     search_fields = ('legajo', 'nombre_completo', 'departamento__nombre')
     list_filter = ('departamento__secretaria', 'departamento')
 
-class RegistroHoraAdmin(admin.ModelAdmin):
-    # --- LISTA DE COLUMNAS FINAL Y LIMPIA ---
-    list_display = (
-        'empleado', 
-        'departamento_imputacion', 
-        'cantidad_horas', 
-        'confirmar_exceso'
-    )
-    
+# APLICAMOS EL MIXIN AQUÍ
+class RegistroHoraAdmin(FiltroSecretariaMixin, admin.ModelAdmin):
+    list_display = ('empleado', 'departamento_imputacion', 'cantidad_horas', 'confirmar_exceso')
     list_editable = ('cantidad_horas', 'departamento_imputacion', 'confirmar_exceso')
     list_filter = ('periodo', 'departamento_imputacion')
     search_fields = ('empleado__nombre_completo', 'empleado__departamento__nombre')
     autocomplete_fields = ['empleado', 'departamento_imputacion']
     
+    # Combinamos filtros de seguridad con filtro de período activo
+    def get_queryset(self, request):
+        qs = super().get_queryset(request) # Llama al Mixin primero
+        if not request.GET:
+            p_activo = Periodo.objects.filter(activo=True).first()
+            if p_activo: qs = qs.filter(periodo=p_activo)
+        return qs
+
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
         
-        # 1. Pasar la URL del reporte histórico al contexto
-        extra_context['reporte_historico_url'] = reverse('reporte_historico')
-        
-        # 2. Lógica de Período (para la barra de contexto)
-        periodo_id = request.GET.get('periodo__id__exact')
-        if periodo_id:
-            try:
-                p = Periodo.objects.get(pk=periodo_id)
-                estado = "🔒 CERRADO" if p.cerrado else "🟢 ABIERTO"
-                extra_context['periodo_info'] = f"Viendo Registros de: {p.nombre} ({estado})"
-                extra_context['periodo_bg'] = '#ffc107' 
-            except: pass
-        else:
-            p_activo = Periodo.objects.filter(activo=True).first()
-            if p_activo:
-                extra_context['periodo_info'] = f"Período Activo Actual: {p_activo.nombre}"
-                extra_context['periodo_bg'] = '#17a2b8'
+        # HERRAMIENTAS SOLO PARA SUPERUSUARIO O DIRECTOR (Si quieres que el secretario no vea esto, usa is_superuser)
+        if request.user.is_superuser:
+            extra_context['reporte_historico_url'] = reverse('reporte_historico')
+            
+            periodo_id = request.GET.get('periodo__id__exact')
+            if periodo_id:
+                try:
+                    p = Periodo.objects.get(pk=periodo_id)
+                    st = "🔒 CERRADO" if p.cerrado else "🟢 ABIERTO"
+                    extra_context['periodo_info'] = f"Viendo: {p.nombre} ({st})"
+                    extra_context['periodo_bg'] = '#ffc107' 
+                except: pass
             else:
-                extra_context['periodo_info'] = "⚠️ No hay período activo"
-                extra_context['periodo_bg'] = '#6c757d'
+                p_activo = Periodo.objects.filter(activo=True).first()
+                if p_activo:
+                    extra_context['periodo_info'] = f"Activo: {p_activo.nombre}"
+                    extra_context['periodo_bg'] = '#17a2b8'
+                else:
+                    extra_context['periodo_info'] = "⚠️ Sin período activo"; extra_context['periodo_bg'] = '#6c757d'
         
         return super().changelist_view(request, extra_context=extra_context)
     
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        
-        # APLICAR FILTRO POR DEFECTO (Período Activo)
-        if not request.GET:
-            periodo_activo = Periodo.objects.filter(activo=True).first()
-            
-            if periodo_activo:
-                qs = qs.filter(periodo=periodo_activo)
-        
-        return qs
-    
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)
-        p_activo = Periodo.objects.filter(activo=True).first()
-        if p_activo: initial['periodo'] = p_activo.pk
+        p = Periodo.objects.filter(activo=True).first()
+        if p: initial['periodo'] = p.pk
         return initial
+    
+    # Filtro de desplegables (Dropdowns)
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if not request.user.is_superuser:
+            try:
+                sec = request.user.perfilusuario.secretaria
+                if sec:
+                    if db_field.name == "empleado": kwargs["queryset"] = Empleado.objects.filter(departamento__secretaria=sec)
+                    if db_field.name == "departamento_imputacion": kwargs["queryset"] = Departamento.objects.filter(secretaria=sec)
+            except: pass
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    class Media:
-        css = {'all': ('css/admin_fixes.css',)}
+    class Media: css = {'all': ('css/admin_fixes.css',)}
 
 admin.site.register(Secretaria, SecretariaAdmin)
 admin.site.register(Departamento, DepartamentoAdmin)
